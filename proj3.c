@@ -6,11 +6,11 @@
 
 
 char *fatImgName;
-struct FAT_32 fat_32;
+struct BS_struct fat_32;
 FILE *fatimg = NULL;
 
 
-struct FSI {
+struct FSInfo_struct {
         unsigned char   FSI_Reserved2[12];
         unsigned char   FSI_Reserved1[480];
         unsigned int    FSI_TrailSig;
@@ -22,34 +22,34 @@ struct FSI {
 
 
 
-struct FAT_32 {
-        unsigned char   FAT_jmpBoot[3];
-        unsigned char   FAT_OEMName[8];
-        unsigned char   FAT_NumFATs;
-        unsigned char   FAT_SecPerClus;
-        unsigned char   FAT_Media;
-        unsigned char   FAT_Reserved[12];
-        unsigned char   FAT_DrvNum;
-        unsigned char   FAT_Reserved1;
-        unsigned char   FAT_BootSig;
-        unsigned char   FAT_VolLab[11];
-        unsigned char   FAT_FilSysType[8];
-        unsigned short  FAT_BytsPerSec;
-        unsigned short  FAT_RsvdSecCnt;
-        unsigned short  FAT_RootEntCnt;
-        unsigned short  FAT_TotSec16;
-        unsigned short  FAT_FATSz16;
-        unsigned short  FAT_SecPerTrk;
-        unsigned short  FAT_NumHeads;
-        unsigned short  FAT_ExtFlags;
-        unsigned short  FAT_FSVer;
-        unsigned short  FAT_FSI_info;
-        unsigned short  FAT_BkBootSec;
-        unsigned int    FAT_HiddSec;
-        unsigned int    FAT_TotSec32;
-        unsigned int    FAT_FATSz32;
-        unsigned int    FAT_VolID;
-        unsigned int    FAT_RootClus;
+struct BS_struct {
+        unsigned char   BS_jmpBoot[3];
+        unsigned char   BS_OEMName[8];
+        unsigned char   BS_NumFATs;
+        unsigned char   BS_SecPerClus;
+        unsigned char   BS_Media;
+        unsigned char   BS_Reserved[12];
+        unsigned char   BS_DrvNum;
+        unsigned char   BS_Reserved1;
+        unsigned char   BS_BootSig;
+        unsigned char   BS_VolLab[11];
+        unsigned char   BS_FilSysType[8];
+        unsigned short  BS_BytsPerSec;
+        unsigned short  BS_RsvdSecCnt;
+        unsigned short  BS_RootEntCnt;
+        unsigned short  BS_TotSec16;
+        unsigned short  BS_FATSz16;
+        unsigned short  BS_SecPerTrk;
+        unsigned short  BS_NumHeads;
+        unsigned short  BS_ExtFlags;
+        unsigned short  BS_FSVer;
+        unsigned short  BS_FSI_info;
+        unsigned short  BS_BkBootSec;
+        unsigned int    BS_HiddSec;
+        unsigned int    BS_TotSec32;
+        unsigned int    BS_FATSz32;
+        unsigned int    BS_VolID;
+        unsigned int    BS_RootClus;
 }; //__attribute__((packed));
 
 
@@ -60,7 +60,7 @@ struct Fat32Img
         unsigned short secPerCluster;
 } fatImg;
 
-int main()
+int main(int argc)
 {
         unsigned short tempBytes[10];
 
@@ -88,8 +88,8 @@ int main()
         printf("sec per cluster: %i \n", fatImg.secPerCluster);
 
 	char mode[1];
-        char name[13];
-        char operation[6];
+        char op[10];
+        char command[10];
 
 
 
@@ -98,87 +98,87 @@ int main()
                 if (fatimg = fopen("fat32.img", "rb")){
 
                         fatImgName = "fat32.img";
-                        for(;;){
+                        while(1){
                                 printf("command: ");
-                                scanf("%s", operation);
+                                scanf("%s", command);
 
-                                if (strcmp(operation, "exit") == 0){
+                                if (strcmp(command, "exit") == 0){
                                         fclose(fatimg);
                                         break;
                                 }
-                                else if(strcmp(operation, "info") == 0){
+                                else if(strcmp(command, "info") == 0){
                                         printf("going to info function");
                                         info();
                                 }
-                                else if (strcmp(operation, "ls") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "ls") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        //ls(name);
+                                        //ls(op);
 
 				}
-                                else if (strcmp(operation, "cd") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "cd") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        cd(name);
+                                        //cd(op);
                                 }
-                                else if (strcmp(operation, "size") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "size") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        size(name);
+                                        //size(op);
                                 }
-                                else if (strcmp(operation, "creat") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "creat") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        create(name);
+                                        //create(name);
                                 }
-                                else if (strcmp(operation, "mkdir") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "mkdir") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        mkdir(name);
+                                        //mkdir(name);
                                 }
-                                else if (strcmp(operation, "open") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "open") == 0){
+                                        scanf("%s", op);
                                         scanf("%s", mode);
 					getchar();
-                                        open(name, mode);
+                                        //open(op, mode);
                                 }
-                                else if (strcmp(operation, "close") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "close") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        close(name);
+                                        //close(op);
                                 }
-                                else if (strcmp(operation, "read") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "read") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        read(name);
+                                        //read(op);
                                 }
-                                else if (strcmp(operation, "write") == 0){
-                                        scanf("%s", name);
+                                else if (strcmp(command, "write") == 0){
+                                        scanf("%s", op);
                                         getchar();
-                                        write(name);
+                                        //write(op);
                                 }
 
 				/*EXTRA CREDIT
 
-                                else if (strcmp(operation, "rm") == 0){
+                                else if (strcmp(command, "rm") == 0){
                                 
                                 }
-                                else if (strcmp(operation, "rmdir") == 0){
+                                else if (strcmp(command, "rmdir") == 0){
                                 
                                 }*/
 
 				else
-                                        printf("Incorrect arguments! Need <info, ls, cd, create, fopen, fclose, fread, fwrite, rm, mkdir, rmdir, exit>\n");
+                                        printf("You have entered an invalid command\n");
                         }
                 }
                 else{
                         printf("Could not find FAT_32 image!\n");
-                        return -1;
+                        return 0;
                 }
         }
         else{
                 printf("Incorrect number of arguments!\n");
-                return -1;
+                return 0;
         }
 
         fclose(fatimg);
@@ -192,17 +192,15 @@ int main()
 void info() {
 
         long offset;
-        struct FSI FAT_FSI_info;
-        offset = fat_32.FAT_FSI_info * fat_32.FAT_BytsPerSec;
+        struct FSInfo_struct FAT_FSI_info;
+        offset = fat_32.BS_FSI_info * fat_32.BS_BytsPerSec;
 
         fseek(fatimg, offset, SEEK_SET);
-        fread(&FAT_FSI_info, sizeof(struct FSI), 1, fatimg);
-        printf("Number of free Sectors: %d\n", FAT_FSI_info.FSI_Free_Count);
-        printf("Sectors per Cluster: %d\n", fat_32.FAT_SecPerClus);
-        printf("Total Sectors: %d\n", fat_32.FAT_TotSec32);
-        printf("Sectors per FAT: %d\n", fat_32.FAT_FATSz32);
-        printf("Number of FATs: %d\n", fat_32.FAT_NumFATs);
-        return 0;
+        fread(&FAT_FSI_info, sizeof(struct FSInfo_struct), 1, fatimg);
+        printf("Sectors per Cluster: %d\n", fat_32.BS_SecPerClus);
+        printf("Total Sectors: %d\n", fat_32.BS_TotSec32);
+        printf("Sectors per FAT: %d\n", fat_32.BS_FATSz32);
+        printf("Number of FATs: %d\n", fat_32.BS_NumFATs);
 }
 
 
