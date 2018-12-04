@@ -5,52 +5,94 @@
 #include <arpa/inet.h>
 
 
+#define END_OF_CLUSTER 0x0FFFFFF8
+#define ATTRIBUTE_NAME_LONG 0x0F
+#define ENTRY_LAST 0x00
+#define ENTRY_EMPTY 0xE5
+#define ATTR_CONST 0x20
+#define CLUSTER_END 0xFFFFFFFF
+#define OFFSET_CONST 32
+
+
+
+
 char *fatImgName;
 struct BS_struct fat_32;
-FILE *fatimg = NULL;
+//FILE *fatimg;
+
+unsigned int parentCluster;
+unsigned int currCluster;
+
+
+void info();
+int ls(char * op);
+void cd(char * op);
+void size(char * op);
+void creat(char * op);
+void mkdir(char * op);
+void open(char * op, char *mode);
+void close(char * op, char *mode);
+void read(char * op);
+void write(char * op);
 
 
 struct FSInfo_struct {
-        unsigned char   FSI_Reserved2[12];
+	unsigned char   FSI_Reserved2[12];
         unsigned char   FSI_Reserved1[480];
         unsigned int    FSI_TrailSig;
         unsigned int    FSI_LeadSig;
         unsigned int    FSI_StrucSig;
         unsigned int    FSI_Free_Count;
-        unsigned int    FSI_Nxt_Free;
+	unsigned int FSI_Nxt_Free;
 }; //__attribute__((packed));
 
 
 
 struct BS_struct {
-        unsigned char   BS_jmpBoot[3];
+	unsigned char   BS_jmpBoot[3];
         unsigned char   BS_OEMName[8];
-        unsigned char   BS_NumFATs;
-        unsigned char   BS_SecPerClus;
-        unsigned char   BS_Media;
-        unsigned char   BS_Reserved[12];
+        unsigned char   BPB_NumFATs;
+        unsigned char   BPB_SecPerClus;
+        unsigned char   BPB_Media;
+        unsigned char   BPB_Reserved[12];
         unsigned char   BS_DrvNum;
         unsigned char   BS_Reserved1;
         unsigned char   BS_BootSig;
         unsigned char   BS_VolLab[11];
         unsigned char   BS_FilSysType[8];
-        unsigned short  BS_BytsPerSec;
-        unsigned short  BS_RsvdSecCnt;
-        unsigned short  BS_RootEntCnt;
-        unsigned short  BS_TotSec16;
-        unsigned short  BS_FATSz16;
-        unsigned short  BS_SecPerTrk;
-        unsigned short  BS_NumHeads;
-        unsigned short  BS_ExtFlags;
-        unsigned short  BS_FSVer;
-        unsigned short  BS_FSI_info;
-        unsigned short  BS_BkBootSec;
-        unsigned int    BS_HiddSec;
-        unsigned int    BS_TotSec32;
-        unsigned int    BS_FATSz32;
-        unsigned int    BS_VolID;
-        unsigned int    BS_RootClus;
+        unsigned short  BPB_BytsPerSec;
+        unsigned short  BPB_RsvdSecCnt;
+        unsigned short  BPB_RootEntCnt;
+        unsigned short  BPB_TotSec16;
+        unsigned short  BPB_FATSz16;
+        unsigned short  BPB_SecPerTrk;
+        unsigned short  BPB_NumHeads;
+        unsigned short  BPB_ExtFlags;
+        unsigned short  BPB_FSVer;
+        unsigned short  BPB_FSInfo;
+        unsigned short  BPB_BkBootSec;
+        unsigned int    BPB_HiddSec;
+        unsigned int    BPB_TotSec32;
+        unsigned int    BPB_FATSz32;
+        unsigned int    BPB_VolID;
+	unsigned int    BPB_RootClus;
 }; //__attribute__((packed));
+
+struct DIR{
+        char   DIR_Name[11];
+        char   DIR_Attr;
+        char   DIR_NTRes;
+        char   DIR_CrtTimeTenth;
+        short  DIR_CrtTime;
+        short  DIR_CrtDate;
+        short  DIR_LstAccDate;
+        short  DIR_FstClusHI;
+        short  DIR_WrtTime;
+        short  DIR_WrtDate;
+        short  DIR_FstClusLO;
+        int    DIR_FileSize;
+}; //__attribute__((packed));
+
 
 
 struct Fat32Img
@@ -60,11 +102,17 @@ struct Fat32Img
         unsigned short secPerCluster;
 } fatImg;
 
+
+FILE *fatimg = NULL;
+
+
+
+
 int main(int argc)
 {
         unsigned short tempBytes[10];
 
-        //FILE *fatimg = NULL;
+        //FILE *fatimg = NULL; made this global so functions could access
 
         fatimg = fopen("fat32.img","rb");
         if(fatimg == NULL)
@@ -76,20 +124,107 @@ int main(int argc)
         fread(fatImg.OEMName, 1, 8, fatimg);
         printf("OEM Name: %s \n", fatImg.OEMName);
 
+
        //bytes per sector
         fseek(fatimg, 11, SEEK_SET);
         fread(tempBytes,1, 2, fatimg);
-        fatImg.bytesPerSec = tempBytes[0];
-        printf("bytes per sector : %i\n", fatImg.bytesPerSec);
+        fat_32.BPB_BytsPerSec = tempBytes[0];
 
-        fseek(fatimg, 13, SEEK_SET);
-        fread(tempBytes, 1, 1, fatimg);
-        fatImg.secPerCluster = htonl((unsigned int)tempBytes);
-        printf("sec per cluster: %i \n", fatImg.secPerCluster);
+	//sec per cluster
+	fseek(fatimg, 13, SEEK_SET);
+        fread(tempBytes,1, 1, fatimg);
+        fat_32.BPB_SecPerClus = tempBytes[0];
+
+	//reserved sec 
+	fseek(fatimg, 14, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_RsvdSecCnt = tempBytes[0];
+
+
+	//num fat
+	fseek(fatimg, 16, SEEK_SET);
+        fread(tempBytes,1, 1, fatimg);
+        fat_32.BPB_NumFATs = tempBytes[0];
+	
+	//root ent
+	fseek(fatimg, 17, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_RootEntCnt = tempBytes[0];
+
+	//total sec 16
+	fseek(fatimg, 19, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_TotSec16 = tempBytes[0];
+
+
+	//media 
+	fseek(fatimg, 21, SEEK_SET);
+        fread(tempBytes,1, 1, fatimg);
+        fat_32.BPB_Media = tempBytes[0];
+
+
+	// fat 16
+	fseek(fatimg, 22, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_FATSz16 = tempBytes[0];
+
+
+	//sec per track
+	fseek(fatimg, 24, SEEK_SET);
+        fread(tempBytes,1, 4, fatimg);
+        fat_32.BPB_SecPerTrk = tempBytes[0];
+
+	//num heads
+	fseek(fatimg, 26, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_NumHeads = tempBytes[0];
+	
+
+	//Hidd sec
+	fseek(fatimg, 28, SEEK_SET);
+        fread(tempBytes,1, 4, fatimg);
+        fat_32.BPB_HiddSec = tempBytes[0];
+
+
+	//total sec
+	fseek(fatimg, 32, SEEK_SET);
+        fread(tempBytes,1, 4, fatimg);
+        fat_32.BPB_TotSec32 = tempBytes[0];
+
+	//fat 32
+	fseek(fatimg, 36, SEEK_SET);
+        fread(tempBytes,1, 4, fatimg);
+        fat_32.BPB_FATSz32 = tempBytes[0];
+
+	//flags
+	fseek(fatimg, 40, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_ExtFlags = tempBytes[0];
+	
+	//svr
+	fseek(fatimg, 42, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_FSVer = tempBytes[0];
+
+
+	//root clus
+	fseek(fatimg, 44, SEEK_SET);
+        fread(tempBytes,1, 4, fatimg);
+        fat_32.BPB_RootClus = tempBytes[0];
+
+	//fs info
+	fseek(fatimg, 48, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_FSInfo = tempBytes[0];
+
+
+	//boot sec
+	fseek(fatimg, 50, SEEK_SET);
+        fread(tempBytes,1, 2, fatimg);
+        fat_32.BPB_BkBootSec = tempBytes[0];
 
 	char mode[1];
         char op[10];
-        char command[10];
 
 
 
@@ -98,63 +233,43 @@ int main(int argc)
                 if (fatimg = fopen("fat32.img", "rb")){
 
                         fatImgName = "fat32.img";
-                        while(1){
-                                printf("command: ");
-                                scanf("%s", command);
+			while(1){
+                                printf("\ncommand: ");
+                                scanf("%s", op);
 
-                                if (strcmp(command, "exit") == 0){
+                                if (strcmp(op, "exit") == 0){
                                         fclose(fatimg);
                                         break;
                                 }
-                                else if(strcmp(command, "info") == 0){
-                                        printf("going to info function");
+                                else if(strcmp(op, "info") == 0){
                                         info();
                                 }
-                                else if (strcmp(command, "ls") == 0){
-                                        scanf("%s", op);
-                                        getchar();
-                                        //ls(op);
+                                else if (strcmp(op, "ls") == 0){
+                                        ls(op);
 
 				}
-                                else if (strcmp(command, "cd") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "cd") == 0){
                                         //cd(op);
                                 }
-                                else if (strcmp(command, "size") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "size") == 0){
                                         //size(op);
                                 }
-                                else if (strcmp(command, "creat") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "creat") == 0){
                                         //create(name);
                                 }
-                                else if (strcmp(command, "mkdir") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "mkdir") == 0){
                                         //mkdir(name);
                                 }
-                                else if (strcmp(command, "open") == 0){
-                                        scanf("%s", op);
-                                        scanf("%s", mode);
-					getchar();
+                                else if (strcmp(op, "open") == 0){
                                         //open(op, mode);
                                 }
-                                else if (strcmp(command, "close") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "close") == 0){
                                         //close(op);
                                 }
-                                else if (strcmp(command, "read") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "read") == 0){
                                         //read(op);
                                 }
-                                else if (strcmp(command, "write") == 0){
-                                        scanf("%s", op);
-                                        getchar();
+                                else if (strcmp(op, "write") == 0){
                                         //write(op);
                                 }
 
@@ -191,54 +306,67 @@ int main(int argc)
 
 void info() {
 
-        long offset;
-        struct FSInfo_struct FAT_FSI_info;
-        offset = fat_32.BS_FSI_info * fat_32.BS_BytsPerSec;
 
-        fseek(fatimg, offset, SEEK_SET);
-        fread(&FAT_FSI_info, sizeof(struct FSInfo_struct), 1, fatimg);
-        printf("Sectors per Cluster: %d\n", fat_32.BS_SecPerClus);
-        printf("Total Sectors: %d\n", fat_32.BS_TotSec32);
-        printf("Sectors per FAT: %d\n", fat_32.BS_FATSz32);
-        printf("Number of FATs: %d\n", fat_32.BS_NumFATs);
-}
-
-
-void ls() {
-
-
-}
-
-void cd() {
-
-
-}
-void size() {
-
-
-}
-void creat() {
-
-
-}
-void mkdir() {
-
-
-}
-void open() {
-
-
-}
-void close() {
-
+	printf("Number of FATs: %d\n", fat_32.BPB_NumFATs);
+        printf("Sec per Cluster: %d\n", fat_32.BPB_SecPerClus);
+	printf("Media: %d\n", fat_32.BPB_Media);
+	printf("Reserved: %d\n", fat_32.BPB_RsvdSecCnt);
+	printf("Bytes per sec: %d\n", fat_32.BPB_BytsPerSec);
+	printf("Reserved Sec count: %d\n", fat_32.BPB_RsvdSecCnt);
+	printf("Roots:  %d\n", fat_32.BPB_RootEntCnt);
+        printf("total Sec: %d\n", fat_32.BPB_TotSec16);
+        printf("Fat 16: %d\n", fat_32.BPB_FATSz16);
+        printf("Sec per Track: %d\n", fat_32.BPB_SecPerTrk);
+        printf("Heads: %d\n", fat_32.BPB_NumHeads);
+	printf("Ext Falgs: %d\n", fat_32.BPB_ExtFlags);
+        printf("FSV: %d\n", fat_32.BPB_FSVer);
+        printf("FSI Info: %d\n", fat_32.BPB_FSInfo);
+	printf("BkBootSec: %d\n", fat_32.BPB_BkBootSec);
+        printf("Hidden Sec: %d\n", fat_32.BPB_HiddSec);
+	printf("Total Sec 32: %d\n", fat_32.BPB_TotSec32);
+	printf("fat 32: %d\n", fat_32.BPB_FATSz32);
+	printf("Root Clus: %d\n", fat_32.BPB_RootClus);
 
 }
 
-void read() {
+
+int ls(char * name) {
+
+
+        return 0;
+}
+
+
+void cd(char * op) {
 
 
 }
-void write() {
+void size(char * op) {
+
+
+}
+void creat(char * op) {
+
+
+}
+void mkdir(char * op) {
+
+
+}
+void open(char * op, char *mode) {
+
+
+}
+void close(char * op, char *mode) {
+
+
+}
+
+void read(char * op) {
+
+
+}
+void write(char * op) {
 
 
 }
